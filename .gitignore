@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.swarm/*.db
+.swarm/*.db-shm
+.swarm/*.db-wal
+*.sqlite
+*.sqlite3
+.DS_Store

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prompt Memory Recall"
+  short_description: "Recall prior prompt lessons with hybrid search."
+  default_prompt: "Before starting any implementation task, run pastchats-memory recall with task intent and use the top source-backed lessons."

@@ -1,0 +1,57 @@
+contract_type: feature
+feature_name: prompt_memory
+version: 1
+description: Invariants for indexing prompt history and running hybrid lexical semantic retrieval.
+issue: "#1"
+
+non_negotiable_rules:
+  - id: MEM-001
+    rule: "Every indexed prompt MUST have one embedding row"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "INSERT INTO prompt_embeddings"
+        in_files: "src/pastchats_memory/store.py"
+        description: "Embedding write path exists during indexing"
+
+  - id: MEM-002
+    rule: "Hybrid score MUST combine lexical and semantic signals"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "hit\.hybrid_score\s*=\s*\(semantic_weight"
+        in_files: "src/pastchats_memory/search.py"
+        description: "Weighted hybrid score assignment exists"
+
+  - id: MEM-003
+    rule: "Vector retrieval MUST fallback when sqlite-vec is unavailable"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "fallback cosine search"
+        in_files: "src/pastchats_memory/store.py"
+        description: "Fallback code path is documented and implemented"
+
+  - id: MEM-004
+    rule: "Recall output MUST include retrieved source path"
+    severity: important
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "Source: \{hit\.source_path\}"
+        in_files: "src/pastchats_memory/cli.py"
+        description: "Recall output contains source traceability"
+
+compliance_checklist:
+  - "Embedding rows and prompt rows stay in sync"
+  - "Hybrid rank uses lexical and semantic terms"
+  - "Semantic search works without sqlite-vec"
+  - "Recall output is auditable with source references"
+
+test_hooks:
+  tests:
+    - file: "tests/contracts/test_memory_feature_contract.py"
+      covers:
+        - MEM-001
+        - MEM-002
+        - MEM-003
+        - MEM-004

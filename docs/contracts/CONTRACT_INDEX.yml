@@ -1,0 +1,105 @@
+version: 1
+last_updated: "2026-02-08"
+total_contracts: 3
+total_journeys: 1
+
+contracts:
+  - id: feature_architecture
+    file: feature_architecture.yml
+    status: active
+    type: feature
+    covers_reqs:
+      - ARCH-001
+      - ARCH-002
+      - ARCH-003
+    issue: "#1"
+
+  - id: feature_prompt_memory
+    file: feature_prompt_memory.yml
+    status: active
+    type: feature
+    covers_reqs:
+      - MEM-001
+      - MEM-002
+      - MEM-003
+      - MEM-004
+    issue: "#1"
+
+  - id: J-PRE-TASK-RECALL
+    file: journey_pre_task_recall.yml
+    status: active
+    type: journey
+    dod_criticality: critical
+    covers_reqs:
+      - MEM-001
+      - MEM-002
+      - MEM-003
+      - MEM-004
+    e2e_test: tests/e2e/journey_pre_task_recall.spec.ts
+    issue: "#1"
+
+requirements_coverage:
+  - req_id: ARCH-001
+    description: SQLite access isolation
+    covered_by:
+      - feature_architecture
+    status: covered
+
+  - req_id: ARCH-002
+    description: FTS5 index availability
+    covered_by:
+      - feature_architecture
+    status: covered
+
+  - req_id: ARCH-003
+    description: Recall command availability
+    covered_by:
+      - feature_architecture
+    status: covered
+
+  - req_id: MEM-001
+    description: Prompt to embedding parity
+    covered_by:
+      - feature_prompt_memory
+      - J-PRE-TASK-RECALL
+    status: covered
+
+  - req_id: MEM-002
+    description: Hybrid lexical semantic scoring
+    covered_by:
+      - feature_prompt_memory
+      - J-PRE-TASK-RECALL
+    status: covered
+
+  - req_id: MEM-003
+    description: sqlite-vec fallback behavior
+    covered_by:
+      - feature_prompt_memory
+      - J-PRE-TASK-RECALL
+    status: covered
+
+  - req_id: MEM-004
+    description: Recall output source traceability
+    covered_by:
+      - feature_prompt_memory
+      - J-PRE-TASK-RECALL
+    status: covered
+
+test_files:
+  - file: tests/contracts/test_architecture_contract.py
+    type: contract
+    covers:
+      - feature_architecture
+    status: passing
+
+  - file: tests/contracts/test_memory_feature_contract.py
+    type: contract
+    covers:
+      - feature_prompt_memory
+    status: passing
+
+  - file: tests/e2e/journey_pre_task_recall.spec.ts
+    type: e2e
+    covers:
+      - J-PRE-TASK-RECALL
+    status: not_created

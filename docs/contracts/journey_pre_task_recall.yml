@@ -1,0 +1,68 @@
+journey_meta:
+  id: J-PRE-TASK-RECALL
+  from_spec: "docs/stories/STORY-001-index-and-recall.md"
+  covers_reqs:
+    - MEM-001
+    - MEM-002
+    - MEM-003
+    - MEM-004
+  type: "e2e"
+  dod_criticality: critical
+  issue: "#1"
+  status: not_tested
+  last_verified: null
+
+preconditions:
+  - description: "Prompt memory DB exists with indexed prompt history"
+    setup_hint: "Run pastchats-memory init and pastchats-memory index"
+  - description: "At least one prior conversation mentions target task domain"
+    setup_hint: "Seed indexed prompts with retries/idempotency examples"
+
+timing:
+  form_submit_delay: 0
+  modal_animation: 0
+  toast_display: 0
+
+steps:
+  - step: 1
+    name: "Invoke recall before implementation"
+    required_elements:
+      - selector: "CLI: pastchats-memory recall --query <task>"
+    action:
+      - click: "Run command"
+    expected:
+      - type: "element_visible"
+        selector: "stdout"
+      - type: "text_contains"
+        selector: "stdout"
+        text: "# Memory Recall"
+
+  - step: 2
+    name: "Inspect returned memories"
+    required_elements:
+      - selector: "stdout"
+    expected:
+      - type: "text_contains"
+        selector: "stdout"
+        text: "What worked"
+      - type: "text_contains"
+        selector: "stdout"
+        text: "Source:"
+
+  - step: 3
+    name: "Use recalled context to start new task"
+    required_elements:
+      - selector: "agent prompt context"
+    expected:
+      - type: "text_contains"
+        selector: "agent prompt context"
+        text: "Memory"
+
+test_hooks:
+  e2e_test_file: "tests/e2e/journey_pre_task_recall.spec.ts"
+
+acceptance_criteria:
+  - "Recall command runs against indexed DB"
+  - "Output includes at least one relevant memory item"
+  - "Each item includes source traceability"
+  - "Output includes distilled prior solution guidance"

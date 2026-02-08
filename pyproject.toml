@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pastchats-memory"
+version = "0.1.0"
+description = "Persistent prompt memory with SQLite FTS5 + hybrid semantic retrieval"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "xanacan" }]
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.0.0"]
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+pastchats-memory = "pastchats_memory.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
