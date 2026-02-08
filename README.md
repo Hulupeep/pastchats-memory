@@ -2,6 +2,11 @@
 
 Persistent prompt memory for agent workflows. Index conversation history into SQLite, then run hybrid keyword + semantic search before starting new tasks.
 
+## Docs
+
+- Help site: https://hulupeep.github.io/pastchats-memory-help/
+- Help repo: https://github.com/Hulupeep/pastchats-memory-help
+
 ## Quick start
 
 ```bash
