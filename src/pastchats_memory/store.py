@@ -211,6 +211,112 @@ class MemoryStore:
         self.conn.commit()
         return inserted
 
+    def next_turn_index(self, conversation_id: str) -> int:
+        row = self.conn.execute(
+            """
+            SELECT COALESCE(MAX(turn_index), -1) + 1 AS next_index
+            FROM prompts
+            WHERE conversation_id = ?
+            """,
+            (conversation_id,),
+        ).fetchone()
+        return int(row["next_index"]) if row else 0
+
+    def store_turn(
+        self,
+        *,
+        source_path: str,
+        source_project: str,
+        conversation_id: str,
+        role: str,
+        content: str,
+        provider: EmbeddingProvider,
+        timestamp: str | None = None,
+        metadata: dict | None = None,
+        turn_index: int | None = None,
+        event_id: str | None = None,
+    ) -> dict[str, int | bool]:
+        """
+        Store one prompt turn directly (for hooks/MCP/live capture).
+
+        Idempotency options:
+        - Provide `event_id` for stable dedupe even if you re-send the same turn.
+        - Otherwise, content is deduped per (source_path, conversation_id, turn_index, role, content).
+        """
+        content = content.strip()
+        if not content:
+            return {"inserted": False, "prompt_id": 0}
+
+        if turn_index is None:
+            turn_index = self.next_turn_index(conversation_id)
+
+        digest_parts = [
+            source_path,
+            conversation_id,
+            str(event_id) if event_id is not None else str(turn_index),
+            role,
+            content,
+        ]
+        digest = hashlib.sha256("|".join(digest_parts).encode("utf-8")).hexdigest()
+
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO prompts(
+              source_path, source_project, conversation_id, turn_index,
+              role, content, timestamp, content_hash, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                source_path,
+                source_project,
+                conversation_id,
+                int(turn_index),
+                role,
+                content,
+                timestamp,
+                digest,
+                json.dumps(metadata or {}, sort_keys=True),
+            ),
+        )
+        was_inserted = cursor.rowcount == 1
+
+        row = cursor.execute(
+            "SELECT id FROM prompts WHERE content_hash = ?",
+            (digest,),
+        ).fetchone()
+        if row is None:
+            self.conn.commit()
+            return {"inserted": False, "prompt_id": 0}
+
+        prompt_id = int(row["id"])
+
+        vector = provider.embed(content)
+        cursor.execute(
+            """
+            INSERT INTO prompt_embeddings(prompt_id, model, dim, vector_json)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(prompt_id) DO UPDATE SET
+              model = excluded.model,
+              dim = excluded.dim,
+              vector_json = excluded.vector_json
+            """,
+            (prompt_id, provider.model_name, provider.dim, json.dumps(vector)),
+        )
+
+        vector_table_ready = self.ensure_vec_table(provider.dim)
+        if vector_table_ready:
+            try:
+                cursor.execute(
+                    "INSERT OR REPLACE INTO prompt_vec(rowid, embedding) VALUES (?, ?)",
+                    (prompt_id, json.dumps(vector)),
+                )
+            except sqlite3.Error:
+                pass
+
+        self.conn.commit()
+        return {"inserted": bool(was_inserted), "prompt_id": int(prompt_id)}
+
     def lexical_search(self, query: str, limit: int) -> list[sqlite3.Row]:
         sql = """
             SELECT p.id, p.source_project, p.source_path, p.conversation_id,

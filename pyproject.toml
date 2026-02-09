@@ -13,10 +13,12 @@ dependencies = []
 
 [project.optional-dependencies]
 openai = ["openai>=1.0.0"]
+mcp = ["mcp[cli]>=1.0.0"]
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
 pastchats-memory = "pastchats_memory.cli:main"
+pastchats-memory-mcp = "pastchats_memory.mcp_server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

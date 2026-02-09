@@ -1,6 +1,6 @@
-version: 1
+version: 2
 last_updated: "2026-02-08"
-total_contracts: 3
+total_contracts: 4
 total_journeys: 1
 
 contracts:
@@ -37,6 +37,17 @@ contracts:
       - MEM-004
     e2e_test: tests/e2e/journey_pre_task_recall.spec.ts
     issue: "#1"
+
+  - id: feature_mcp
+    file: feature_mcp.yml
+    status: active
+    type: feature
+    covers_reqs:
+      - MCP-001
+      - MCP-002
+      - MCP-003
+      - MCP-004
+    issue: "#2"
 
 requirements_coverage:
   - req_id: ARCH-001
@@ -85,6 +96,30 @@ requirements_coverage:
       - J-PRE-TASK-RECALL
     status: covered
 
+  - req_id: MCP-001
+    description: MCP server entrypoint exists
+    covered_by:
+      - feature_mcp
+    status: covered
+
+  - req_id: MCP-002
+    description: MCP recall tool exists
+    covered_by:
+      - feature_mcp
+    status: covered
+
+  - req_id: MCP-003
+    description: MCP store_turn tool exists
+    covered_by:
+      - feature_mcp
+    status: covered
+
+  - req_id: MCP-004
+    description: Direct turn ingestion supports event_id idempotency
+    covered_by:
+      - feature_mcp
+    status: covered
+
 test_files:
   - file: tests/contracts/test_architecture_contract.py
     type: contract
@@ -103,3 +138,9 @@ test_files:
     covers:
       - J-PRE-TASK-RECALL
     status: not_created
+
+  - file: tests/contracts/test_mcp_feature_contract.py
+    type: contract
+    covers:
+      - feature_mcp
+    status: passing

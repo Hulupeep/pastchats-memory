@@ -1,0 +1,60 @@
+contract_type: feature
+feature_name: mcp
+version: 1
+description: MCP server wrapper for PastChats Memory to enable always-on recall and direct turn capture.
+issue: "#2"
+
+non_negotiable_rules:
+  - id: MCP-001
+    rule: "Project MUST ship an MCP server entrypoint"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "pastchats-memory-mcp"
+        in_files: "pyproject.toml"
+        description: "CLI entrypoint exists"
+
+  - id: MCP-002
+    rule: "MCP server MUST expose recall tool"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "def recall\\("
+        in_files: "src/pastchats_memory/mcp_server.py"
+        description: "recall tool implemented"
+
+  - id: MCP-003
+    rule: "MCP server MUST expose store_turn tool for always-on capture"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "def store_turn\\("
+        in_files: "src/pastchats_memory/mcp_server.py"
+        description: "store_turn tool implemented"
+
+  - id: MCP-004
+    rule: "Store layer MUST support direct turn ingestion with optional event_id idempotency"
+    severity: critical
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "def store_turn\\("
+        in_files: "src/pastchats_memory/store.py"
+        description: "Direct store_turn write path exists"
+      - pattern: "event_id"
+        in_files: "src/pastchats_memory/store.py"
+        description: "Idempotency field exists"
+
+compliance_checklist:
+  - "pastchats-memory-mcp command exists"
+  - "MCP exposes recall and store_turn tools"
+  - "Direct store_turn write path supports event_id idempotency"
+
+test_hooks:
+  tests:
+    - file: "tests/contracts/test_mcp_feature_contract.py"
+      covers:
+        - MCP-001
+        - MCP-002
+        - MCP-003
+        - MCP-004
+
