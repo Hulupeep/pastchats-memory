@@ -49,3 +49,13 @@ def test_arch_003_cli_must_expose_recall_entrypoint() -> None:
         "Expected recall subcommand in CLI\n"
         "See: docs/contracts/feature_architecture.yml"
     )
+
+
+def test_arch_004_cli_must_expose_claude_code_hook_entrypoints() -> None:
+    content = _read(CLI)
+    assert 'hook-user-prompt-submit' in content and 'hook-stop' in content, (
+        "CONTRACT VIOLATION: ARCH-004\n"
+        "Rule: CLI MUST expose Claude Code hook entrypoints for pre-task recall and capture\n"
+        "Expected hook-user-prompt-submit and hook-stop commands in CLI\n"
+        "See: docs/contracts/feature_architecture.yml"
+    )

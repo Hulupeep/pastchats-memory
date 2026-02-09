@@ -49,3 +49,17 @@ Run (stdio transport):
 ```bash
 pastchats-memory-mcp --db .swarm/prompt_memory.db
 ```
+
+## Claude Code hooks (automatic recall + capture)
+
+If you use Claude Code hooks, you can:
+
+- inject memory lessons before each task starts (`UserPromptSubmit`)
+- capture assistant replies as you work (`Stop`)
+
+Commands (hooks read JSON from stdin):
+
+```bash
+pastchats-memory hook-user-prompt-submit --db .swarm/prompt_memory.db --limit 3
+pastchats-memory hook-stop --db .swarm/prompt_memory.db
+```

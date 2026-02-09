@@ -36,10 +36,23 @@ non_negotiable_rules:
         in_files: "src/pastchats_memory/cli.py"
         description: "Recall command is mandatory for memory priming"
 
+  - id: ARCH-004
+    rule: "CLI MUST expose Claude Code hook entrypoints for pre-task recall and capture"
+    severity: important
+    enforcement: contract_test
+    required_patterns:
+      - pattern: "hook-user-prompt-submit"
+        in_files: "src/pastchats_memory/cli.py"
+        description: "UserPromptSubmit hook command exists"
+      - pattern: "hook-stop"
+        in_files: "src/pastchats_memory/cli.py"
+        description: "Stop hook command exists"
+
 compliance_checklist:
   - "Only store.py imports sqlite3"
   - "Schema defines prompts_fts FTS5 virtual table"
   - "CLI has recall entrypoint"
+  - "CLI has Claude Code hook entrypoints"
 
 test_hooks:
   tests:
@@ -48,3 +61,4 @@ test_hooks:
         - ARCH-001
         - ARCH-002
         - ARCH-003
+        - ARCH-004
