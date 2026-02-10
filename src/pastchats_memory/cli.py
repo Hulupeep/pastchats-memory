@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from datetime import datetime, timezone
 import hashlib
+import time
+import re
 
 from .config import load_settings
 from .embeddings import (
@@ -77,6 +79,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hook_user.add_argument("--db", default=None, help="SQLite DB path")
     hook_user.add_argument("--limit", type=int, default=3)
+    hook_user.add_argument(
+        "--policy",
+        choices=["once-per-session", "cooldown", "always"],
+        default="once-per-session",
+        help="When to inject recall into context (default: once-per-session).",
+    )
+    hook_user.add_argument(
+        "--cooldown-seconds",
+        type=int,
+        default=900,
+        help="Minimum seconds between injections when policy=cooldown (default: 900).",
+    )
+    hook_user.add_argument(
+        "--min-chars",
+        type=int,
+        default=40,
+        help="Minimum prompt length to trigger injection (default: 40).",
+    )
+    hook_user.add_argument(
+        "--max-line-chars",
+        type=int,
+        default=200,
+        help="Max chars per injected memory line (default: 200).",
+    )
     hook_user.add_argument(
         "--embed-provider",
         choices=["auto", "local", "openai"],
@@ -280,11 +306,24 @@ def _read_hook_input() -> dict:
     except json.JSONDecodeError:
         return {"_raw": raw}
 
+_TRIVIAL_PROMPT_RE = re.compile(r"^\s*(ok|okay|thanks|thank you|cool|nice|continue|go on)\s*[.!]*\s*$", re.IGNORECASE)
+_CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+
+
+def _normalize_prompt_for_search(prompt: str) -> str:
+    # Remove huge code blocks (they dominate similarity but are rarely good as a query).
+    prompt = _CODE_FENCE_RE.sub(" ", prompt)
+    prompt = re.sub(r"\s+", " ", prompt).strip()
+    # Keep a reasonable window for query embedding/FTS.
+    if len(prompt) > 800:
+        prompt = prompt[:800]
+    return prompt
+
 
 def cmd_hook_user_prompt_submit(args: argparse.Namespace) -> int:
     payload = _read_hook_input()
     prompt = str(payload.get("prompt") or "").strip()
-    if len(prompt) < 20:
+    if len(prompt) < int(args.min_chars) or _TRIVIAL_PROMPT_RE.match(prompt):
         return 0
 
     session_id = str(payload.get("session_id") or "unknown")
@@ -320,22 +359,47 @@ def cmd_hook_user_prompt_submit(args: argparse.Namespace) -> int:
         if store.get_setting("embedding_model") is None:
             return 0
 
-        hits = hybrid_search(store, provider, prompt, limit=args.limit)
+        now_ts = int(time.time())
+        inject_key_ts = f"hook:{session_id}:last_inject_ts"
+        inject_key_hash = f"hook:{session_id}:last_inject_prompt_hash"
+        last_ts_raw = store.get_setting(inject_key_ts)
+        last_hash = store.get_setting(inject_key_hash) or ""
+        last_ts = int(last_ts_raw) if last_ts_raw and last_ts_raw.isdigit() else 0
+
+        normalized_prompt = _normalize_prompt_for_search(prompt)
+        normalized_hash = hashlib.sha256(normalized_prompt.encode("utf-8")).hexdigest()
+
+        # Decide whether to inject for this prompt.
+        if args.policy == "once-per-session" and last_ts > 0:
+            return 0
+        if args.policy == "cooldown" and last_ts > 0 and (now_ts - last_ts) < int(args.cooldown_seconds):
+            return 0
+        if normalized_hash == last_hash:
+            return 0
+
+        hits = hybrid_search(store, provider, normalized_prompt, limit=int(args.limit) * 4)
         inserted_id = int(result.get("prompt_id") or 0)
         if inserted_id:
             hits = [h for h in hits if h.prompt_id != inserted_id]
 
-        if not hits:
+        # Prefer "prompt + what worked" pairs: user turns that have a next assistant.
+        paired = [h for h in hits if h.role == "user" and (h.next_assistant or "").strip()]
+        preferred = paired if paired else hits
+        preferred = preferred[: int(args.limit)]
+
+        store.set_setting(inject_key_ts, str(now_ts))
+        store.set_setting(inject_key_hash, normalized_hash)
+
+        if not preferred:
             return 0
 
         # For UserPromptSubmit, stdout is injected into context. Keep it short.
         lines: list[str] = ["Memory lessons (from past chats):"]
-        for idx, hit in enumerate(hits[: args.limit], start=1):
-            what_worked = (hit.next_assistant or "").strip().replace("\n", " ")
-            if not what_worked:
-                what_worked = hit.content.strip().replace("\n", " ")
-            if len(what_worked) > 180:
-                what_worked = what_worked[:177] + "..."
+        for idx, hit in enumerate(preferred, start=1):
+            what_worked = (hit.next_assistant or hit.content or "").strip().replace("\n", " ")
+            max_chars = int(args.max_line_chars)
+            if len(what_worked) > max_chars:
+                what_worked = what_worked[: max_chars - 3] + "..."
             lines.append(f"{idx}) {what_worked} (source: {hit.source_path})")
         print("\n".join(lines))
         return 0
@@ -349,8 +413,17 @@ def _extract_last_assistant_from_transcript(transcript_path: str) -> str:
     if not path.exists() or not path.is_file():
         return ""
 
-    data = path.read_bytes()
-    window = data[-256_000:] if len(data) > 256_000 else data
+    # Read only the tail of the file (avoid reading multi-MB transcripts into memory).
+    tail_bytes = 256_000
+    with path.open("rb") as f:
+        try:
+            f.seek(0, 2)
+            size = f.tell()
+            start = max(0, size - tail_bytes)
+            f.seek(start, 0)
+        except OSError:
+            f.seek(0, 0)
+        window = f.read()
     text = window.decode("utf-8", errors="ignore")
     lines = [ln for ln in text.splitlines() if ln.strip().startswith("{")]
 

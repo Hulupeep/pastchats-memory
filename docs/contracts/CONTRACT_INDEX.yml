@@ -1,5 +1,5 @@
-version: 2
-last_updated: "2026-02-08"
+version: 3
+last_updated: "2026-02-10"
 total_contracts: 4
 total_journeys: 1
 
@@ -12,6 +12,7 @@ contracts:
       - ARCH-001
       - ARCH-002
       - ARCH-003
+      - ARCH-004
     issue: "#1"
 
   - id: feature_prompt_memory
@@ -64,6 +65,12 @@ requirements_coverage:
 
   - req_id: ARCH-003
     description: Recall command availability
+    covered_by:
+      - feature_architecture
+    status: covered
+
+  - req_id: ARCH-004
+    description: Claude Code hook entrypoints availability
     covered_by:
       - feature_architecture
     status: covered

@@ -1,6 +1,6 @@
 contract_type: feature
 feature_name: architecture
-version: 1
+version: 2
 description: Cross-cutting architecture invariants for the PastChats memory system.
 issue: "#1"
 
